@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaboCarn — Carnet de labo scientifique</title>
+<style>
+:root {
+  --green: #7ee8a2;
+  --dark: #1a2233;
+  --dark2: #2d3a4e;
+  --border: #e0e7ef;
+  --bg: #f0f4f8;
+  --text: #1a2233;
+  --muted: #6b7a8d;
+  --card: #fff;
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+
+/* ===== NAV ===== */
+#nav {
+  background: var(--dark);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-wrap: wrap;
+}
+#nav-logo { font-size: 16px; font-weight: 700; color: var(--green); white-space: nowrap; }
+#nav-logo span { color: #fff; }
+.nav-btn { background: none; border: none; color: #aab4c4; font-size: 13px; cursor: pointer; padding: 5px 10px; border-radius: 8px; white-space: nowrap; }
+.nav-btn.active, .nav-btn:hover { background: var(--dark2); color: #fff; }
+#nav-api { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+#api-input {
+  background: var(--dark2);
+  border: 1px solid #3d4e62;
+  border-radius: 8px;
+  padding: 5px 9px;
+  color: var(--green);
+  font-size: 11px;
+  font-family: monospace;
+  width: 140px;
+  outline: none;
+}
+@media (max-width: 480px) { #api-input { width: 100px; font-size: 10px; } }
+#api-save {
+  background: var(--green);
+  color: var(--dark);
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ===== LAYOUT ===== */
+.page { display: none; padding: 16px; max-width: 900px; margin: 0 auto; }
+.page.active { display: block; }
+@media (min-width: 768px) { .page { padding: 24px 28px; } }
+
+/* ===== DASHBOARD ===== */
+#dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+#dash-header h1 { font-size: 18px; font-weight: 700; }
+@media (min-width: 768px) { #dash-header h1 { font-size: 22px; } }
+#btn-new-exp {
+  background: var(--dark);
+  color: var(--green);
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#exp-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 480px) { #exp-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 768px) { #exp-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.exp-card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; cursor: pointer; transition: box-shadow 0.15s; }
+.exp-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.exp-card-icon { font-size: 26px; margin-bottom: 8px; }
+.exp-card-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.exp-card-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+.exp-card-meta { display: flex; align-items: center; justify-content: space-between; }
+.status-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+.status-en-cours { background: #e8f5e9; color: #2e7d32; }
+.status-terminee { background: #e3f2fd; color: #1565c0; }
+.status-abandonnee { background: #fce4ec; color: #c62828; }
+.exp-card-date { font-size: 10px; color: #aab4c4; }
+#empty-dash { text-align: center; padding: 50px 20px; color: #aab4c4; }
+
+/* ===== MODAL ===== */
+#modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 200;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+@media (min-width: 600px) {
+  #modal-overlay { align-items: center; padding: 20px; }
+}
+#modal-overlay.open { display: flex; }
+#modal {
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 20px 18px 30px;
+}
+@media (min-width: 600px) {
+  #modal { border-radius: 16px; max-width: 500px; padding: 24px; }
+}
+#modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.field-group { margin-bottom: 13px; }
+.field-group label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.field-group input, .field-group textarea, .field-group select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  background: #f8fafc;
+  outline: none;
+  resize: vertical;
+  -webkit-appearance: none;
+}
+.field-group input:focus, .field-group textarea:focus { border-color: var(--green); background: #fff; }
+.modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.btn-cancel { background: var(--bg); color: var(--muted); border: none; border-radius: 8px; padding: 10px 18px; font-size: 13px; cursor: pointer; }
+.btn-confirm { background: var(--dark); color: var(--green); border: none; border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+/* ===== PAGE EXP ===== */
+#exp-back { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; margin-bottom: 14px; display: flex; align-items: center; gap: 5px; padding: 0; }
+#exp-header { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; margin-bottom: 14px; }
+#exp-header-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+#exp-emoji { font-size: 30px; flex-shrink: 0; }
+#exp-header-info { flex: 1; min-width: 120px; }
+#exp-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+@media (min-width: 768px) { #exp-title { font-size: 20px; } }
+#exp-hypo { font-size: 13px; color: var(--muted); line-height: 1.5; }
+#exp-status-select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  background: #f8fafc;
+  -webkit-appearance: none;
+}
+
+/* TABS */
+#exp-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#exp-tabs::-webkit-scrollbar { display: none; }
+.exp-tab {
+  background: none;
+  border: none;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+@media (min-width: 600px) { .exp-tab { font-size: 13px; padding: 10px 16px; } }
+.exp-tab.active { color: var(--text); border-bottom-color: var(--green); font-weight: 600; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ===== JOURNAL ===== */
+#journal-add { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 14px; margin-bottom: 14px; }
+#journal-add h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+#journal-date {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  margin-bottom: 10px;
+  font-family: inherit;
+  outline: none;
+  background: #f8fafc;
+  -webkit-appearance: none;
+}
+#journal-text {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 90px;
+  outline: none;
+  background: #f8fafc;
+}
+#journal-text:focus { border-color: var(--green); background: #fff; }
+#journal-links {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  margin-top: 10px;
+  font-family: inherit;
+  outline: none;
+  background: #f8fafc;
+}
+#journal-photo-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f4f8;
+  border: 1px dashed #c0cdd8;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
+}
+#journal-photo-input { display: none; }
+#photo-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.photo-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+#journal-add-btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+#btn-add-entry {
+  flex: 1;
+  background: var(--dark);
+  color: var(--green);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  min-width: 120px;
+}
+#btn-ia-entry {
+  flex: 1;
+  background: #f0f4f8;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 120px;
+}
+#btn-ia-entry:hover { background: #e8f5e9; border-color: var(--green); }
+
+.journal-entry { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 14px; margin-bottom: 10px; }
+.entry-date { font-size: 11px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 7px; }
+.entry-text { font-size: 14px; color: var(--text); line-height: 1.6; white-space: pre-wrap; margin-bottom: 10px; }
+.entry-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.entry-photo { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer; transition: width 0.2s; }
+.entry-links { display: flex; flex-direction: column; gap: 4px; }
+.entry-link { font-size: 12px; color: #1a73e8; text-decoration: none; display: flex; align-items: center; gap: 4px; word-break: break-all; }
+.entry-del { background: none; border: none; color: #ddd; font-size: 14px; cursor: pointer; float: right; padding: 0; line-height: 1; }
+.entry-del:hover { color: #e53935; }
+
+/* ===== PROTOCOLE ===== */
+.section-card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; margin-bottom: 12px; }
+.section-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+.section-field {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  color: var(--text);
+  background: #f8fafc;
+}
+.section-field:focus { border-color: var(--green); background: #fff; }
+.section-btns { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ia-write-btn {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ia-write-btn:hover { background: #c8e6c9; }
+.save-section-btn {
+  background: var(--dark);
+  color: var(--green);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ===== IA CHAT ===== */
+#ia-panel { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+#ia-header { background: var(--dark); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+#ia-header-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+#ia-header-info p:first-child { font-size: 13px; font-weight: 700; color: #fff; }
+#ia-header-info p:last-child { font-size: 11px; color: var(--green); }
+#ia-messages { height: 280px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 768px) { #ia-messages { height: 340px; } }
+.ia-msg-row { display: flex; gap: 7px; align-items: flex-end; }
+.ia-msg-row.user { flex-direction: row-reverse; }
+.ia-av { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.ia-av.ai { background: #e8f5e9; color: #2e7d32; }
+.ia-av.user { background: #e3f2fd; color: #1565c0; }
+.ia-bubble { max-width: 82%; padding: 9px 13px; font-size: 13px; line-height: 1.55; border-radius: 14px; }
+.ia-bubble.ai { background: #f0f4f8; color: var(--text); border-bottom-left-radius: 3px; white-space: pre-wrap; }
+.ia-bubble.user { background: var(--dark); color: var(--green); border-bottom-right-radius: 3px; }
+.ia-typing { display: flex; gap: 4px; align-items: center; padding: 10px 13px; }
+.iatd { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: blink 1.2s infinite; }
+.iatd:nth-child(2){animation-delay:.2s} .iatd:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+#ia-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); align-items: flex-end; }
+#ia-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #f8fafc;
+  color: var(--text);
+  resize: none;
+  min-height: 38px;
+  max-height: 80px;
+  outline: none;
+}
+#ia-input:focus { border-color: var(--green); }
+#ia-send { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--dark); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#ia-send:hover { background: var(--dark2); }
+#ia-send:disabled { background: #ccc; cursor: default; }
+#ia-send svg { fill: var(--green); }
+
+/* ===== CONFIRM MODAL ===== */
+#confirm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 300;
+  align-items: flex-end;
+  justify-content: center;
+}
+@media (min-width: 600px) { #confirm-overlay { align-items: center; padding: 20px; } }
+#confirm-overlay.open { display: flex; }
+#confirm-modal {
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px 18px 30px;
+}
+@media (min-width: 600px) { #confirm-modal { border-radius: 16px; max-width: 480px; padding: 22px; } }
+#confirm-modal h3 { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+#confirm-modal p { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+#confirm-preview { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin-bottom: 12px; }
+#confirm-target { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+.confirm-btns { display: flex; gap: 10px; }
+#confirm-cancel { flex: 1; background: var(--bg); color: var(--muted); border: none; border-radius: 8px; padding: 11px; font-size: 13px; cursor: pointer; }
+#confirm-ok { flex: 1; background: var(--dark); color: var(--green); border: none; border-radius: 8px; padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+/* ===== RAPPORT ===== */
+#btn-gen-rapport {
+  width: 100%;
+  background: var(--dark);
+  color: var(--green);
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#rapport-content { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 18px; }
+.rapport-section { margin-bottom: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.rapport-section h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--green); margin-bottom: 6px; }
+.rapport-section p { font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+
+/* ===== TOAST ===== */
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--dark); color: var(--green); padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; z-index: 500; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div id="nav-logo">🔬 <span>LaboCarn</span></div>
+  <button class="nav-btn active" onclick="showPage('dashboard')">Mes expériences</button>
+  <div id="nav-api">
+    <input type="password" id="api-input" placeholder="Clé Groq..." />
+    <button id="api-save">Enregistrer</button>
+  </div>
+</nav>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div id="dash-header">
+    <h1>🧪 Mes expériences</h1>
+    <button id="btn-new-exp" onclick="openNewExpModal()">+ Nouvelle</button>
+  </div>
+  <div id="exp-grid"></div>
+  <div id="empty-dash" style="display:none">
+    <p style="font-size:15px;margin-bottom:8px">Aucune expérience pour l'instant.</p>
+    <span style="font-size:13px">Crée ta première expérience scientifique !</span>
+  </div>
+</div>
+
+<!-- PAGE EXPÉRIENCE -->
+<div id="page-exp" class="page">
+  <button id="exp-back" onclick="showPage('dashboard')">← Retour</button>
+  <div id="exp-header">
+    <div id="exp-header-top">
+      <div id="exp-emoji"></div>
+      <div id="exp-header-info">
+        <div id="exp-title"></div>
+        <div id="exp-hypo"></div>
+      </div>
+      <select id="exp-status-select" onchange="updateExpStatus()">
+        <option value="en-cours">En cours</option>
+        <option value="terminee">Terminée</option>
+        <option value="abandonnee">Abandonnée</option>
+      </select>
+    </div>
+  </div>
+  <div id="exp-tabs">
+    <button class="exp-tab active" onclick="showTab(event,'journal')">📅 Journal</button>
+    <button class="exp-tab" onclick="showTab(event,'protocole')">📋 Protocole</button>
+    <button class="exp-tab" onclick="showTab(event,'ia')">🤖 IA</button>
+    <button class="exp-tab" onclick="showTab(event,'rapport')">📄 Rapport</button>
+  </div>
+
+  <!-- JOURNAL -->
+  <div id="tab-journal" class="tab-content active">
+    <div id="journal-add">
+      <h3>📝 Nouvelle entrée</h3>
+      <input type="date" id="journal-date" />
+      <textarea id="journal-text" placeholder="Décris tes observations, mesures, résultats du jour..."></textarea>
+      <input type="text" id="journal-links" placeholder="🔗 Lien(s) — sépare par des virgules" />
+      <label id="journal-photo-label">
+        📸 Ajouter des photos
+        <input type="file" id="journal-photo-input" accept="image/*" multiple />
+      </label>
+      <div id="photo-preview"></div>
+      <div id="journal-add-btns">
+        <button id="btn-add-entry" onclick="addJournalEntry()">+ Ajouter</button>
+        <button id="btn-ia-entry" onclick="iaWriteJournal()">🤖 IA rédige</button>
+      </div>
+    </div>
+    <div id="journal-entries"></div>
+  </div>
+
+  <!-- PROTOCOLE -->
+  <div id="tab-protocole" class="tab-content">
+    <div class="section-card">
+      <h3>🎯 Objectif</h3>
+      <textarea class="section-field" id="proto-objectif" placeholder="Quel est l'objectif de cette expérience ?"></textarea>
+      <div class="section-btns">
+        <button class="ia-write-btn" onclick="iaWriteSection('objectif')">🤖 IA rédige</button>
+        <button class="save-section-btn" onclick="saveSection('objectif')">Sauvegarder</button>
+      </div>
+    </div>
+    <div class="section-card">
+      <h3>🔬 Hypothèse</h3>
+      <textarea class="section-field" id="proto-hypothese" placeholder="Quelle est ton hypothèse scientifique ?"></textarea>
+      <div class="section-btns">
+        <button class="ia-write-btn" onclick="iaWriteSection('hypothese')">🤖 IA rédige</button>
+        <button class="save-section-btn" onclick="saveSection('hypothese')">Sauvegarder</button>
+      </div>
+    </div>
+    <div class="section-card">
+      <h3>⚗️ Matériel & Protocole</h3>
+      <textarea class="section-field" id="proto-protocole" placeholder="Matériel nécessaire et étapes du protocole..." style="min-height:110px"></textarea>
+      <div class="section-btns">
+        <button class="ia-write-btn" onclick="iaWriteSection('protocole')">🤖 IA rédige</button>
+        <button class="save-section-btn" onclick="saveSection('protocole')">Sauvegarder</button>
+      </div>
+    </div>
+    <div class="section-card">
+      <h3>📊 Variables</h3>
+      <textarea class="section-field" id="proto-variables" placeholder="Variable indépendante, dépendante, contrôlée..."></textarea>
+      <div class="section-btns">
+        <button class="ia-write-btn" onclick="iaWriteSection('variables')">🤖 IA rédige</button>
+        <button class="save-section-btn" onclick="saveSection('variables')">Sauvegarder</button>
+      </div>
+    </div>
+    <div class="section-card">
+      <h3>✅ Conclusion</h3>
+      <textarea class="section-field" id="proto-conclusion" placeholder="Conclusion de l'expérience..."></textarea>
+      <div class="section-btns">
+        <button class="ia-write-btn" onclick="iaWriteSection('conclusion')">🤖 IA rédige</button>
+        <button class="save-section-btn" onclick="saveSection('conclusion')">Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- IA CHAT -->
+  <div id="tab-ia" class="tab-content">
+    <div id="ia-panel">
+      <div id="ia-header">
+        <div id="ia-header-icon">🧬</div>
+        <div id="ia-header-info">
+          <p>ScienceIA — Expert scientifique</p>
+          <p>Protocoles · Analyse · Rédaction</p>
+        </div>
+      </div>
+      <div id="ia-messages">
+        <div class="ia-msg-row">
+          <div class="ia-av ai">IA</div>
+          <div class="ia-bubble ai">Bonjour ! Je suis ScienceIA 🔬
+
+Je peux t'aider à :
+• Structurer et valider ton protocole
+• Analyser tes observations
+• Repérer les biais méthodologiques
+• Rédiger directement dans ton carnet
+• Répondre à toutes tes questions scientifiques
+
+Dis-moi ce dont tu as besoin !</div>
+        </div>
+      </div>
+      <div id="ia-input-row">
+        <textarea id="ia-input" placeholder="Pose une question à ScienceIA..." rows="1"></textarea>
+        <button id="ia-send" onclick="sendIaMessage()">
+          <svg width="14" height="14" viewBox="0 0 24 24"><path d="M2 21L23 12 2 3v7l15 2-15 2v7z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RAPPORT -->
+  <div id="tab-rapport" class="tab-content">
+    <button id="btn-gen-rapport" onclick="genRapport()">🤖 Générer le rapport scientifique complet</button>
+    <div id="rapport-content">
+      <div id="rapport-placeholder" style="text-align:center;padding:40px 20px;color:#aab4c4;font-size:14px;line-height:1.6">
+        Clique sur le bouton ci-dessus pour générer un rapport scientifique complet basé sur ton expérience.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOUVELLE EXP -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2>🧪 Nouvelle expérience</h2>
+    <div style="display:flex;gap:10px">
+      <div class="field-group" style="width:70px;flex-shrink:0">
+        <label>Emoji</label>
+        <input type="text" id="new-emoji" value="🔬" maxlength="2" style="text-align:center;font-size:20px;padding:8px" />
+      </div>
+      <div class="field-group" style="flex:1">
+        <label>Titre *</label>
+        <input type="text" id="new-title" placeholder="Ex: Effet du sel sur la germination" />
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Description courte</label>
+      <input type="text" id="new-desc" placeholder="En quelques mots..." />
+    </div>
+    <div class="field-group">
+      <label>Hypothèse initiale</label>
+      <textarea id="new-hypo" placeholder="Si... alors... parce que..." style="min-height:65px"></textarea>
+    </div>
+    <div class="field-group">
+      <label>Domaine scientifique</label>
+      <select id="new-domaine">
+        <option>Biologie</option><option>Chimie</option><option>Physique</option>
+        <option>Astronomie</option><option>Géologie</option><option>Écologie</option><option>Autre</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="btn-confirm" onclick="createExperience()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM IA ÉCRITURE -->
+<div id="confirm-overlay">
+  <div id="confirm-modal">
+    <h3>✍️ L'IA veut écrire dans ton carnet</h3>
+    <p>Voici ce que l'IA propose. Tu acceptes ?</p>
+    <div id="confirm-preview"></div>
+    <div id="confirm-target"></div>
+    <div class="confirm-btns">
+      <button id="confirm-cancel" onclick="closeConfirm()">Annuler</button>
+      <button id="confirm-ok" onclick="applyIaWrite()">✓ Accepter</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let apiKey = localStorage.getItem('labocarn_groq_key') || '';
+let experiments = JSON.parse(localStorage.getItem('labocarn_exps') || '[]');
+let currentExpId = null;
+let pendingIaWrite = null;
+let iaHistory = [];
+let currentPhotos = [];
+
+const apiInput = document.getElementById('api-input');
+const apiSaveBtn = document.getElementById('api-save');
+if (apiKey) { apiInput.value = apiKey; apiSaveBtn.textContent = '✓ OK'; apiSaveBtn.style.background = '#7ee8a2'; }
+apiSaveBtn.addEventListener('click', () => {
+  const v = apiInput.value.trim();
+  if (!v) return;
+  apiKey = v;
+  localStorage.setItem('labocarn_groq_key', v);
+  apiSaveBtn.textContent = '✓ OK';
+  apiSaveBtn.style.background = '#7ee8a2';
+  showToast('Clé API enregistrée !');
+});
+
+function saveExps() { localStorage.setItem('labocarn_exps', JSON.stringify(experiments)); }
+function getCurrentExp() { return experiments.find(e => e.id === currentExpId); }
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (page === 'dashboard') renderDashboard();
+}
+
+function showTab(e, tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.exp-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  e.target.classList.add('active');
+}
+
+function renderDashboard() {
+  const grid = document.getElementById('exp-grid');
+  const empty = document.getElementById('empty-dash');
+  if (!experiments.length) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = experiments.map(e => `
+    <div class="exp-card" onclick="openExp('${e.id}')">
+      <div class="exp-card-icon">${e.emoji}</div>
+      <div class="exp-card-title">${e.title}</div>
+      <div class="exp-card-desc">${e.desc || e.domaine}</div>
+      <div class="exp-card-meta">
+        <span class="status-badge status-${e.status}">${e.status==='en-cours'?'En cours':e.status==='terminee'?'Terminée':'Abandonnée'}</span>
+        <span class="exp-card-date">${(e.entries||[]).length} entrée(s)</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openNewExpModal() { document.getElementById('modal-overlay').classList.add('open'); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+function createExperience() {
+  const title = document.getElementById('new-title').value.trim();
+  if (!title) { showToast('Donne un titre !'); return; }
+  const exp = {
+    id: Date.now().toString(),
+    emoji: document.getElementById('new-emoji').value || '🔬',
+    title,
+    desc: document.getElementById('new-desc').value.trim(),
+    hypothese: document.getElementById('new-hypo').value.trim(),
+    domaine: document.getElementById('new-domaine').value,
+    status: 'en-cours',
+    createdAt: new Date().toLocaleDateString('fr-FR'),
+    entries: [],
+    protocole: { objectif:'', hypothese: document.getElementById('new-hypo').value.trim(), protocole:'', variables:'', conclusion:'' }
+  };
+  experiments.unshift(exp);
+  saveExps();
+  closeModal();
+  ['new-title','new-desc','new-hypo'].forEach(id => document.getElementById(id).value = '');
+  openExp(exp.id);
+}
+
+function openExp(id) {
+  currentExpId = id;
+  iaHistory = [];
+  const exp = getCurrentExp();
+  showPage('exp');
+  document.getElementById('exp-emoji').textContent = exp.emoji;
+  document.getElementById('exp-title').textContent = exp.title;
+  document.getElementById('exp-hypo').textContent = exp.hypothese ? '💡 ' + exp.hypothese : exp.domaine;
+  document.getElementById('exp-status-select').value = exp.status;
+  document.getElementById('journal-date').value = new Date().toISOString().split('T')[0];
+  loadProtocole();
+  renderJournal();
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.exp-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-journal').classList.add('active');
+  document.querySelectorAll('.exp-tab')[0].classList.add('active');
+}
+
+function updateExpStatus() {
+  const exp = getCurrentExp();
+  exp.status = document.getElementById('exp-status-select').value;
+  saveExps();
+  showToast('Statut mis à jour !');
+}
+
+function addJournalEntry() {
+  const text = document.getElementById('journal-text').value.trim();
+  const date = document.getElementById('journal-date').value;
+  const linksRaw = document.getElementById('journal-links').value.trim();
+  if (!text) { showToast('Écris quelque chose !'); return; }
+  const exp = getCurrentExp();
+  const links = linksRaw ? linksRaw.split(',').map(l => l.trim()).filter(Boolean) : [];
+  exp.entries.unshift({ id: Date.now().toString(), date: date || new Date().toISOString().split('T')[0], text, links, photos: [...currentPhotos] });
+  saveExps();
+  document.getElementById('journal-text').value = '';
+  document.getElementById('journal-links').value = '';
+  document.getElementById('photo-preview').innerHTML = '';
+  currentPhotos = [];
+  renderJournal();
+  showToast('Entrée ajoutée !');
+}
+
+function renderJournal() {
+  const exp = getCurrentExp();
+  const container = document.getElementById('journal-entries');
+  if (!exp.entries.length) { container.innerHTML = '<p style="text-align:center;color:#aab4c4;font-size:13px;padding:24px">Aucune entrée pour l\'instant.</p>'; return; }
+  container.innerHTML = exp.entries.map(e => `
+    <div class="journal-entry">
+      <button class="entry-del" onclick="deleteEntry('${e.id}')">✕</button>
+      <div class="entry-date">📅 ${formatDate(e.date)}</div>
+      <div class="entry-text">${e.text}</div>
+      ${e.photos&&e.photos.length?`<div class="entry-photos">${e.photos.map(p=>`<img class="entry-photo" src="${p}" onclick="togglePhoto(this)" />`).join('')}</div>`:''}
+      ${e.links&&e.links.length?`<div class="entry-links">${e.links.map(l=>`<a class="entry-link" href="${l.startsWith('http')?l:'https://'+l}" target="_blank">🔗 ${l}</a>`).join('')}</div>`:''}
+    </div>
+  `).join('');
+}
+
+function togglePhoto(img) { img.style.width = img.style.width ? '' : '100%'; }
+function deleteEntry(id) { const exp = getCurrentExp(); exp.entries = exp.entries.filter(e => e.id !== id); saveExps(); renderJournal(); }
+function formatDate(d) { if (!d) return ''; const p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+
+document.getElementById('journal-photo-input').addEventListener('change', function() {
+  Array.from(this.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      currentPhotos.push(e.target.result);
+      const img = document.createElement('img');
+      img.src = e.target.result; img.className = 'photo-thumb';
+      document.getElementById('photo-preview').appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+function loadProtocole() {
+  const exp = getCurrentExp();
+  const p = exp.protocole || {};
+  ['objectif','hypothese','protocole','variables','conclusion'].forEach(k => {
+    const el = document.getElementById('proto-'+k);
+    if (el) el.value = p[k] || '';
+  });
+}
+
+function saveSection(key) {
+  const exp = getCurrentExp();
+  if (!exp.protocole) exp.protocole = {};
+  exp.protocole[key] = document.getElementById('proto-'+key).value;
+  saveExps();
+  showToast('Sauvegardé !');
+}
+
+async function iaWriteSection(key) {
+  if (!apiKey) { showToast('Entre ta clé Groq !'); return; }
+  const exp = getCurrentExp();
+  const labels = { objectif:'objectif', hypothese:'hypothèse scientifique', protocole:'protocole détaillé (matériel + étapes)', variables:'variables (indépendante, dépendante, contrôlées)', conclusion:'conclusion scientifique' };
+  const text = await callGroq(`Pour l'expérience "${exp.title}" (${exp.domaine}), hypothèse: "${exp.hypothese||'non définie'}", rédige le/la ${labels[key]} de manière rigoureuse et scientifique.`, 'Tu es un expert en rédaction et méthode scientifique. Rédige de façon rigoureuse, structurée et professionnelle en français.');
+  if (text) showConfirm(text, `Section "${labels[key]}"`, () => { document.getElementById('proto-'+key).value = text; saveSection(key); });
+}
+
+async function iaWriteJournal() {
+  if (!apiKey) { showToast('Entre ta clé Groq !'); return; }
+  const exp = getCurrentExp();
+  const hint = document.getElementById('journal-text').value.trim();
+  const date = document.getElementById('journal-date').value;
+  const text = await callGroq(`Pour l'expérience "${exp.title}", rédige une entrée de journal scientifique pour le ${formatDate(date)}. ${hint?'Notes brutes : '+hint:'Génère une entrée type.'}`, 'Tu es un expert en journal scientifique. Rédige des entrées précises et structurées en français.');
+  if (text) showConfirm(text, 'Journal du jour', () => { document.getElementById('journal-text').value = text; });
+}
+
+async function genRapport() {
+  if (!apiKey) { showToast('Entre ta clé Groq !'); return; }
+  const exp = getCurrentExp();
+  const entries = exp.entries.map(e => `[${formatDate(e.date)}] ${e.text}`).join('\n');
+  const p = exp.protocole || {};
+  const placeholder = document.getElementById('rapport-placeholder');
+  if (placeholder) placeholder.textContent = 'Génération en cours...';
+  const text = await callGroq(`Génère un rapport scientifique complet :
+Titre: ${exp.title} | Domaine: ${exp.domaine} | Hypothèse: ${exp.hypothese}
+Objectif: ${p.objectif||'non défini'} | Protocole: ${p.protocole||'non défini'}
+Variables: ${p.variables||'non défini'} | Journal:\n${entries||'Aucune entrée'}
+Conclusion: ${p.conclusion||'non définie'}
+Sections : Résumé, Introduction, Matériel & méthodes, Résultats, Discussion, Conclusion.`, 'Tu es un expert en rédaction de rapports scientifiques. Rédige un rapport complet et professionnel en français.');
+  if (text) document.getElementById('rapport-content').innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><h2 style="font-size:16px;font-weight:700">${exp.emoji} ${exp.title}</h2><span style="font-size:11px;color:#aab4c4">${new Date().toLocaleDateString('fr-FR')}</span></div><div class="rapport-section"><p>${text}</p></div>`;
+}
+
+async function sendIaMessage() {
+  const inp = document.getElementById('ia-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  if (!apiKey) { showToast('Entre ta clé Groq !'); return; }
+  inp.value = ''; inp.style.height = 'auto';
+  document.getElementById('ia-send').disabled = true;
+  addIaBubble(text, 'user');
+  iaHistory.push({ role:'user', content:text });
+  showIaTyping();
+  const exp = getCurrentExp();
+  const ctx = `L'utilisateur travaille sur "${exp.title}" (${exp.domaine}). Hypothèse: ${exp.hypothese||'non définie'}. Protocole: ${exp.protocole?.protocole||'non défini'}.`;
+  const system = `Tu es ScienceIA, expert en démarche scientifique, protocoles et rédaction scientifique. ${ctx} Si tu proposes de rédiger quelque chose pour le carnet, termine par "PROPOSE_ECRITURE: [texte]". Réponds en français.`;
+  const reply = await callGroq(text, system, iaHistory.slice(0,-1));
+  removeIaTyping();
+  if (reply) {
+    if (reply.includes('PROPOSE_ECRITURE:')) {
+      const parts = reply.split('PROPOSE_ECRITURE:');
+      const msg = parts[0].trim(); const proposed = parts[1].trim();
+      addIaBubble(msg, 'ai');
+      iaHistory.push({ role:'assistant', content:msg });
+      showConfirm(proposed, 'Journal ou protocole', () => {
+        document.getElementById('journal-text').value = proposed;
+        document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.exp-tab').forEach(t=>t.classList.remove('active'));
+        document.getElementById('tab-journal').classList.add('active');
+        document.querySelectorAll('.exp-tab')[0].classList.add('active');
+        showToast('Texte inséré dans le journal !');
+      });
+    } else {
+      addIaBubble(reply, 'ai');
+      iaHistory.push({ role:'assistant', content:reply });
+    }
+  }
+  document.getElementById('ia-send').disabled = false;
+}
+
+function addIaBubble(text, role) {
+  const msgs = document.getElementById('ia-messages');
+  const row = document.createElement('div');
+  row.className = 'ia-msg-row '+(role==='user'?'user':'');
+  const av = document.createElement('div'); av.className='ia-av '+(role==='user'?'user':'ai'); av.textContent=role==='user'?'Toi':'IA';
+  const b = document.createElement('div'); b.className='ia-bubble '+(role==='user'?'user':'ai'); b.textContent=text;
+  if (role==='user'){row.appendChild(b);row.appendChild(av);}else{row.appendChild(av);row.appendChild(b);}
+  msgs.appendChild(row); msgs.scrollTop=msgs.scrollHeight;
+}
+function showIaTyping(){const msgs=document.getElementById('ia-messages');const row=document.createElement('div');row.className='ia-msg-row';row.id='ia-typing-row';const av=document.createElement('div');av.className='ia-av ai';av.textContent='IA';const b=document.createElement('div');b.className='ia-bubble ai ia-typing';b.innerHTML='<div class="iatd"></div><div class="iatd"></div><div class="iatd"></div>';row.appendChild(av);row.appendChild(b);msgs.appendChild(row);msgs.scrollTop=msgs.scrollHeight;}
+function removeIaTyping(){const t=document.getElementById('ia-typing-row');if(t)t.remove();}
+document.getElementById('ia-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendIaMessage();}});
+document.getElementById('ia-input').addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';});
+
+function showConfirm(text, target, cb) { pendingIaWrite=cb; document.getElementById('confirm-preview').textContent=text; document.getElementById('confirm-target').textContent='📍 Destination : '+target; document.getElementById('confirm-overlay').classList.add('open'); }
+function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); pendingIaWrite=null; }
+function applyIaWrite() { if(pendingIaWrite)pendingIaWrite(); closeConfirm(); showToast('L\'IA a écrit dans ton carnet !'); }
+
+async function callGroq(userMsg, systemPrompt, history=[]) {
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({ model:'llama3-70b-8192', max_tokens:1500, messages:[{role:'system',content:systemPrompt},...history,{role:'user',content:userMsg}] })
+    });
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch(e) { showToast('Erreur API. Vérifie ta clé Groq.'); return null; }
+}
+
+function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+
+document.getElementById('journal-date').value = new Date().toISOString().split('T')[0];
+renderDashboard();
+</script>
+</body>
+</html>
